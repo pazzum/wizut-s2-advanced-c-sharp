@@ -1,21 +1,43 @@
 ﻿using System;
 using System.Net;
+using System.Net.Sockets;
+using System.Text;
 
 namespace Zadanie2
 {
     public class Server
     {
-        private readonly HttpListener _httpListener = new HttpListener();
+        private readonly TcpListener _tcpListener = new TcpListener(IPAddress.Any, 8020);
 
         public Server()
         {
-            _httpListener.Prefixes.Add("http://+:8000/");
-            _httpListener.Start();
-            if (_httpListener.IsListening) Console.WriteLine("Server started.");
+            while (true)
+            {
+                _tcpListener.Start();
+                Console.WriteLine("Server started.");
+                var tcpClient = _tcpListener.AcceptTcpClient();
+                Console.WriteLine("Connected");
 
-            var response = _httpListener.GetContext().Response;
+                var message = Encoding.ASCII.GetBytes("HTTP /1.1 200 OK");
+                
+                var stream = new System.IO.StreamWriter(tcpClient.GetStream());
+                stream.Write("HTTP/1.1 200 OK");
+                stream.Write(Environment.NewLine);
+                stream.Write("Content-Type: text/plain; charset=UTF-8");
+                stream.Write(Environment.NewLine);
+                stream.Write("Content-Length: " + message.Length);
+                stream.Write(Environment.NewLine);
+                stream.Write(Environment.NewLine);
+                stream.Write(message);
+                stream.Flush();
+                tcpClient.Close();
+                _tcpListener.Stop();
+                Console.WriteLine("Message sent.");
+            }
+
+            //var response = _tcpListener.GetContext().Response;
                        
-            response.Close();
+            //response.Close();
         }
     }
 }
