@@ -6,4 +6,9 @@
   <ItemGroup>
     <None Remove="input.html" />
   </ItemGroup>
+  <ItemGroup>
+    <None Update="input.csv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 </Project>
