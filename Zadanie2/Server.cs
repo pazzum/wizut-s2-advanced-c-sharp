@@ -35,7 +35,7 @@ namespace Zadanie2
                 {
                     _tcpListener.Start();
                 }
-                catch(SocketException e)
+                catch(SocketException)
                 {
                     this.Stop();
                 }
