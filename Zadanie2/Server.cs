@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -12,85 +11,42 @@ namespace Zadanie2
 {
     public class Server
     {
-        private TcpListener _tcpListener;
+        private readonly TcpListener _tcpListener = new TcpListener(IPAddress.Any, 8020);
         private readonly string _serverName = "advanced-c-sharp";
         private bool isListening = true;
-        private Thread _listeningThread;
-        public string _servingPath { get;  set; }
 
-        public Server(int port)
+        public Server()
         {
-            Thread.CurrentThread.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
-
-            _tcpListener = new TcpListener(IPAddress.Any, port);
-            _listeningThread = new Thread(new ThreadStart(ListenForConnections));
-            _listeningThread.Start();
+            var thread = new Thread(new ThreadStart(ListenForConnections));
+            thread.Start();
         }
 
         private void ListenForConnections()
         {
             while (isListening)
             {
-                try
-                {
-                    _tcpListener.Start();
-                }
-                catch(SocketException e)
-                {
-                    this.Stop();
-                }
-
-                Socket tcpSocket = null;
-                try
-                {
-                    tcpSocket = _tcpListener.AcceptSocket();
-                }
-                catch
-                {
-                    this.Stop();
-                }
+                _tcpListener.Start();
+                Console.WriteLine("Server started.");
+                var tcpSocket = _tcpListener.AcceptSocket();
                 if (tcpSocket.Connected)
                 {
                     var thread = new Thread(new ThreadStart(delegate () {
+                            Console.WriteLine("Connected." + tcpSocket.AddressFamily);
+
                             var buffer = new Byte[tcpSocket.Available];
                             tcpSocket.Receive(buffer);
 
-                            string bufferString = Encoding.ASCII.GetString(buffer);
+                            Console.WriteLine(Encoding.ASCII.GetString(buffer));
 
-                            var bufferValidator = new BufferValidator();
+                            var randomPicker = new HtmlRandomPicker();
+                            var body = randomPicker.Pick();
 
-                            MemoryStream memoryStream = null;
-                            if (!bufferValidator.Validate(bufferString))
-                            {
-                                memoryStream = GetResponseInternalError("<h1>500</h1> Buffer validation failed.");
-                                tcpSocket.Send(memoryStream.GetBuffer());
-                                tcpSocket.Close();
-                            }
+                            var memoryStream = FormatResponseBody(body);
 
-                            var pathParser = new PathParser(_servingPath, bufferString);
-
-                            string body = null;
-                            try
-                            {
-                                body = File.ReadAllText(pathParser.getPath());
-
-                                memoryStream = FormatResponseBody(body);
-                            }
-                            catch(FileNotFoundException e)
-                            {
-                                body = "<h1>404</h1>" + e.Message;
-
-                                memoryStream = GetResponseNotFound(body);
-                            }
-                            catch(Exception e)
-                            {
-                                body = "<h1>500</h1>" + e.Message;
-                                memoryStream = GetResponseInternalError(body);
-                            }
-
-                        
                             tcpSocket.Send(memoryStream.GetBuffer());
                             tcpSocket.Close();
+
+                            Console.WriteLine("Disconnected.");
                         }));
                     thread.Start();
                 }
@@ -117,50 +73,5 @@ namespace Zadanie2
 
             return memoryStream;
         }
-
-        private MemoryStream GetResponseNotFound(string body)
-        {
-            var memoryStream = new MemoryStream();
-            var stream = new StreamWriter(memoryStream);
-            stream.WriteLine("HTTP/1.1 404 Not Found");
-            stream.WriteLine("Expires: -1");
-            stream.WriteLine("Date: " + DateTime.Now);
-            stream.WriteLine("Access-Control - Allow - Origin : *");
-            stream.WriteLine("Content-Type : text/html; charset=utf-8");
-            stream.WriteLine("Content-Length: " + body.Length);
-            stream.WriteLine(_serverName);
-            stream.WriteLine("x - xss - protection : 1; mode = block");
-            stream.WriteLine("Connection : close");
-            stream.Write(stream.NewLine);
-            stream.WriteLine(body);
-            stream.Flush();
-
-            return memoryStream;
-        }
-
-        private MemoryStream GetResponseInternalError(string body)
-        {
-            var memoryStream = new MemoryStream();
-            var stream = new StreamWriter(memoryStream);
-            stream.WriteLine("HTTP/1.1 500 Internal Server Error");
-            stream.WriteLine("Expires: -1");
-            stream.WriteLine("Date: " + DateTime.Now);
-            stream.WriteLine("Access-Control - Allow - Origin : *");
-            stream.WriteLine("Content-Length: " + body.Length);
-            stream.WriteLine(_serverName);
-            stream.WriteLine("x - xss - protection : 1; mode = block");
-            stream.WriteLine("Connection : close");
-            stream.Write(stream.NewLine);
-            stream.WriteLine(body);
-            stream.Flush();
-
-            return memoryStream;
-        }
-
-        public void Stop()
-        {
-            _tcpListener.Stop();
-        }
-               
     }
 }
